@@ -42,6 +42,47 @@ void* mymemory_alloc(mymemory_t *memory, size_t size){
 
     allocation_t *actual= memory -> head;
     allocation_t *old= NULL;
+
+    void *allocation->start= memory->pool;
+
+    while(actual){
+        
+        if ((uintptr_t)actual->start - (uintptr_t)allocation_start >= size) { 
+
+            break; 
+
+        } 
+
+        allocation_start = (void*)((uintptr_t)actual->start + actual->size); // Ajusta o próximo início 
+
+        old = actual; 
+
+        actual = actual->next;
+    }
+
+    if((uintptr_t)memory->pool + memory->total_size - (uintptr_t)allocation_start < size) { 
+        return NULL;
+    }
+
+    allocation_t *new_allocation = (allocation_t*) malloc(sizeof(allocation_t)); 
+
+    new_allocation->start = allocation_start; // Define o início da alocação 
+
+    new_allocation->size = size;              // Define o tamanho da alocação 
+
+    new_allocation->next = actual;           // Define o próximo elemento na lista 
+
+ 
+
+    if (old) old->next = new_allocation; // Insere após o anterior, se houver 
+
+    else memory->head = new_allocation;            // Caso contrário, é o primeiro da lista 
+
+ 
+
+    return allocation_start; // Retorna o ponteiro para o início do bloco alocado 
+
+
     
 }
 
@@ -104,13 +145,13 @@ void mymemory_stats(mymemory_t *memory){
 
         allocation_count++;
 
-        size_t free_space = (uintptr_t)current->start - (uintptr_t)last_end;
+        size_t free_space = (uintptr_t)actual->start - (uintptr_t)last_end;
 
         if (free_space > largest_free_block){
             largest_free_block = free_space; // Atualiza o maior bloco livre 
         }
 
-        last_end = (void*)((uintptr_t)current->start + current->size); // Define o fim do bloco atual 
+        last_end = (void*)((uintptr_t)actual->start + actual->size); // Define o fim do bloco atual 
 
         actual = actual->next;
     }
@@ -129,8 +170,9 @@ void mymemory_stats(mymemory_t *memory){
 }
 
 void mymemory_cleanup(mymemory_t *memory){
-    if(!memory) return
-
+    if(!memory) {
+        return
+    }
     allocation_t *actual= memory->head;
     while(actual){
         allocation_t *temp= actual;
