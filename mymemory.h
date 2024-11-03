@@ -46,7 +46,31 @@ void* mymemory_alloc(mymemory_t *memory, size_t size){
 }
 
 void mymemory_free(mymemory_t *memory, void *ptr){
+    if(!memory || !ptr){
+        return;
+    }
 
+    allocation_t *actual= memory->head;
+    allocation_t *old= NULL;
+
+    while(actual){
+        if (actual->start==ptr){
+            if(old){
+                old->next= actual->next;
+            }
+            else{
+                memory->head = actual->next;
+            }
+
+            free(actual);
+
+            return;
+        }
+
+        old=actual;
+        
+        actual=actual->next;
+    }
 }
 
 
