@@ -1,0 +1,295 @@
+#include <stdio.h> 
+
+#include <stdlib.h> 
+
+#include <stddef.h> 
+
+ 
+
+typedef struct allocation { 
+
+    void *start;           // Ponteiro para o início do bloco alocado 
+
+    size_t size;           // Tamanho da alocação 
+
+    struct allocation *next; // Ponteiro para a próxima alocação na lista 
+
+} allocation_t; 
+
+ 
+
+typedef struct { 
+
+    void *pool;            // Ponteiro para o bloco de memória total 
+
+    size_t total_size;     // Tamanho total do pool de memória 
+
+    allocation_t *head;    // Ponteiro para a lista encadeada de alocações 
+
+} mymemory_t; 
+
+ 
+
+// Inicializa o gerenciador de memória com um pool de tamanho especificado 
+
+mymemory_t* mymemory_init(size_t size) { 
+
+    mymemory_t *memory = (mymemory_t*) malloc(sizeof(mymemory_t)); 
+
+    if (!memory) return NULL;  // Verifica se a alocação de 'mymemory_t' foi bem-sucedida 
+
+     
+
+    memory->pool = malloc(size);  // Aloca o pool de memória total 
+
+    if (!memory->pool) {          // Verifica se a alocação do pool foi bem-sucedida 
+
+        free(memory);             // Se falhar, libera 'memory' e retorna NULL 
+
+        return NULL; 
+
+    } 
+
+     
+
+    memory->total_size = size;    // Define o tamanho total do pool 
+
+    memory->head = NULL;          // Inicialmente, não há alocações (lista vazia) 
+
+    return memory;                // Retorna o ponteiro para o gerenciador de memória 
+
+} 
+
+ 
+
+// Tenta alocar um bloco de memória de um tamanho especificado 
+
+void* mymemory_alloc(mymemory_t *memory, size_t size) { 
+
+    if (!memory || size <= 0) return NULL;  // Verifica validade dos argumentos 
+
+     
+
+    allocation_t *current = memory->head;  // Ponteiro para percorrer a lista de alocações 
+
+    allocation_t *previous = NULL;         // Ponteiro para o elemento anterior na lista 
+
+    void *allocation_start = memory->pool; // Posição inicial de alocação 
+
+ 
+
+    // Percorre as alocações para encontrar espaço suficiente 
+
+    while (current) { 
+
+        // Verifica espaço entre a posição atual e a próxima alocação 
+
+        if ((uintptr_t)current->start - (uintptr_t)allocation_start >= size) { 
+
+            break; 
+
+        } 
+
+        allocation_start = (void*)((uintptr_t)current->start + current->size); // Ajusta o próximo início 
+
+        previous = current; 
+
+        current = current->next; // Avança para o próximo elemento da lista 
+
+    } 
+
+ 
+
+    // Verifica se há espaço suficiente no final do pool 
+
+    if ((uintptr_t)memory->pool + memory->total_size - (uintptr_t)allocation_start < size) { 
+
+        return NULL; // Retorna NULL se não houver espaço suficiente 
+
+    } 
+
+ 
+
+    // Cria uma nova alocação e insere na lista 
+
+    allocation_t *new_allocation = (allocation_t*) malloc(sizeof(allocation_t)); 
+
+    new_allocation->start = allocation_start; // Define o início da alocação 
+
+    new_allocation->size = size;              // Define o tamanho da alocação 
+
+    new_allocation->next = current;           // Define o próximo elemento na lista 
+
+ 
+
+    if (previous) previous->next = new_allocation; // Insere após o anterior, se houver 
+
+    else memory->head = new_allocation;            // Caso contrário, é o primeiro da lista 
+
+ 
+
+    return allocation_start; // Retorna o ponteiro para o início do bloco alocado 
+
+} 
+
+ 
+
+// Libera a memória associada ao ponteiro ptr 
+
+void mymemory_free(mymemory_t *memory, void *ptr) { 
+
+    if (!memory || !ptr) return;  // Verifica validade dos argumentos 
+
+ 
+
+    allocation_t *current = memory->head;  // Ponteiro para percorrer a lista de alocações 
+
+    allocation_t *previous = NULL;         // Ponteiro para o elemento anterior na lista 
+
+ 
+
+    // Percorre a lista para encontrar a alocação a ser liberada 
+
+    while (current) { 
+
+        if (current->start == ptr) { // Se encontramos a alocação com o ponteiro 'ptr' 
+
+            if (previous) previous->next = current->next; // Atualiza o 'next' do anterior 
+
+            else memory->head = current->next;            // Caso contrário, ajusta o início da lista 
+
+ 
+
+            free(current); // Libera a estrutura de controle 'allocation_t' 
+
+            return;        // Finaliza a função 
+
+        } 
+
+        previous = current; 
+
+        current = current->next; // Avança para o próximo elemento 
+
+    } 
+
+} 
+
+ 
+
+// Exibe todas as alocações atuais 
+
+void mymemory_display(mymemory_t *memory) { 
+
+    if (!memory) return;  // Verifica validade do ponteiro 
+
+ 
+
+    allocation_t *current = memory->head; 
+
+    printf("Alocações ativas:\n"); 
+
+    // Percorre e imprime as informações de cada alocação 
+
+    while (current) { 
+
+        printf("Início: %p, Tamanho: %zu bytes\n", current->start, current->size); 
+
+        current = current->next; 
+
+    } 
+
+} 
+
+ 
+
+// Exibe estatísticas gerais sobre a memória 
+
+void mymemory_stats(mymemory_t *memory) { 
+
+    if (!memory) return;  // Verifica validade do ponteiro 
+
+ 
+
+    size_t total_allocated = 0, largest_free_block = 0; 
+
+    int allocation_count = 0; 
+
+    allocation_t *current = memory->head; 
+
+    void *last_end = memory->pool; 
+
+ 
+
+    // Percorre as alocações para calcular o total alocado e encontrar o maior bloco livre 
+
+    while (current) { 
+
+        total_allocated += current->size;    // Soma o tamanho da alocação 
+
+        allocation_count++;                  // Conta o número de alocações 
+
+ 
+
+        // Calcula o espaço livre entre a posição atual e a próxima alocação 
+
+        size_t free_space = (uintptr_t)current->start - (uintptr_t)last_end; 
+
+        if (free_space > largest_free_block) largest_free_block = free_space; // Atualiza o maior bloco livre 
+
+ 
+
+        last_end = (void*)((uintptr_t)current->start + current->size); // Define o fim do bloco atual 
+
+        current = current->next; // Avança para o próximo elemento 
+
+    } 
+
+ 
+
+    // Verifica o espaço livre no final do pool 
+
+    size_t final_free_space = (uintptr_t)memory->pool + memory->total_size - (uintptr_t)last_end; 
+
+    if (final_free_space > largest_free_block) largest_free_block = final_free_space; 
+
+ 
+
+    // Exibe as estatísticas 
+
+    printf("Total de alocações: %d\n", allocation_count); 
+
+    printf("Memória total alocada: %zu bytes\n", total_allocated); 
+
+    printf("Maior bloco contíguo de memória livre: %zu bytes\n", largest_free_block); 
+
+} 
+
+ 
+
+// Libera todos os recursos alocados para o gerenciador de memória 
+
+void mymemory_cleanup(mymemory_t *memory) { 
+
+    if (!memory) return; // Verifica validade do ponteiro 
+
+ 
+
+    allocation_t *current = memory->head; 
+
+    // Percorre e libera cada alocação da lista encadeada 
+
+    while (current) { 
+
+        allocation_t *temp = current; 
+
+        current = current->next; 
+
+        free(temp);  // Libera a estrutura 'allocation_t' 
+
+    } 
+
+    free(memory->pool);  // Libera o pool de memória 
+
+    free(memory);        // Libera a estrutura 'mymemory_t' 
+
+} 
