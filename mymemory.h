@@ -68,7 +68,7 @@ void mymemory_free(mymemory_t *memory, void *ptr){
         }
 
         old=actual;
-        
+
         actual=actual->next;
     }
 }
@@ -89,6 +89,42 @@ void mymemory_display(mymemory_t *memory){
 }
 
 void mymemory_stats(mymemory_t *memory){
+    if(!memory){
+        return;
+    }
+
+    size_t total_allocated=0;
+    largest_free_block=0;
+    int allocation_count=0;
+    allocation_t *actual=memory->head;
+    void *last=memory->pool;
+
+    while(actual){
+        total_allocated= total_allocated + actual->size;
+
+        allocation_count++;
+
+        size_t free_space = (uintptr_t)current->start - (uintptr_t)last_end;
+
+        if (free_space > largest_free_block){
+            largest_free_block = free_space; // Atualiza o maior bloco livre 
+        }
+
+        last_end = (void*)((uintptr_t)current->start + current->size); // Define o fim do bloco atual 
+
+        actual = actual->next;
+    }
+    size_t final_free_space = (uintptr_t)memory->pool + memory->total_size - (uintptr_t)last_end; 
+
+    if (final_free_space > largest_free_block) {
+        largest_free_block = final_free_space; 
+    }
+
+    printf("Total de alocações: %d\n", allocation_count); 
+
+    printf("Memória total alocada: %zu bytes\n", total_allocated); 
+
+    printf("Maior bloco contíguo de memória livre: %zu bytes\n", largest_free_block); 
 
 }
 
